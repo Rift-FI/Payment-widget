@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useDisconnect } from 'wagmi';
-import { parseUnits, formatUnits } from 'viem';
+import { parseUnits } from 'viem';
 import { InvoiceData } from '../types';
 import { getInvoiceFromUrl, formatAmount, formatAddress } from '../utils/invoice';
 import { getChainConfig, getTokenConfig, isNativeToken } from '../config/chains';
@@ -65,8 +65,6 @@ export default function PaymentWidget() {
 
       if (isNativeToken(invoiceData.chain, invoiceData.token)) {
         // Handle native token payment (MATIC, ETH, etc.)
-        const value = parseUnits(invoiceData.amount.toString(), chainConfig.nativeCurrency.decimals);
-        
         // For native tokens, we'll use a simple transfer
         // Note: This would need to be implemented differently for actual native transfers
         setError('Native token payments not yet implemented in this demo');
@@ -137,8 +135,6 @@ export default function PaymentWidget() {
   }
 
   const chainConfig = getChainConfig(invoiceData.chain);
-  const tokenConfig = getTokenConfig(invoiceData.chain, invoiceData.token);
-  const isNative = isNativeToken(invoiceData.chain, invoiceData.token);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">

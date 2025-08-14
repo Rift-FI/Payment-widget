@@ -15,7 +15,6 @@ const metadata = {
 
 // Create Wagmi Adapter with custom RPC
 const wagmiAdapter = new WagmiAdapter({
-  storage: typeof window !== 'undefined' ? window.localStorage : undefined,
   networks: [polygon],
   projectId,
   ssr: false,
@@ -40,8 +39,7 @@ export const appKit = createAppKit({
   themeVariables: {
     '--w3m-accent': '#8B5CF6', // Rift Finance purple
     '--w3m-border-radius-master': '12px',
-  },
-  enableWalletFeatures: false, // Disable wallet features that require API calls
+  }
 })
 
 export const wagmiConfig = wagmiAdapter.wagmiConfig
