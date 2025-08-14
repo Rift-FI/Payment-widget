@@ -37,7 +37,9 @@ export const appKit = createAppKit({
   },
   themeMode: 'light',
   themeVariables: {
-    '--w3m-accent': '#8B5CF6', // Rift Finance purple
+    '--w3m-accent': '#2E8C96', // Rift Finance teal
+    '--w3m-color-mix': '#2E8C96',
+    '--w3m-color-mix-strength': 50,
     '--w3m-border-radius-master': '12px',
   }
 })

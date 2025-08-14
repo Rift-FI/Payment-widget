@@ -106,13 +106,13 @@ export default function PaymentWidget() {
 
   if (error && !invoiceData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#E9F1F4] flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Payment Error</h2>
-          <p className="text-gray-600">{error}</p>
+          <h2 className="text-xl font-semibold text-[#1F2D3A] mb-2">Payment Error</h2>
+          <p className="text-[#1F2D3A]/70">{error}</p>
         </div>
       </div>
     );
@@ -120,15 +120,15 @@ export default function PaymentWidget() {
 
   if (!invoiceData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#E9F1F4] flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
           <div className="animate-pulse-subtle">
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Wallet className="w-8 h-8 text-purple-600" />
+            <div className="w-16 h-16 bg-[#E9F1F4] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Wallet className="w-8 h-8 text-[#2E8C96]" />
             </div>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Payment</h2>
-          <p className="text-gray-600">Preparing your payment details...</p>
+          <h2 className="text-xl font-semibold text-[#1F2D3A] mb-2">Loading Payment</h2>
+          <p className="text-[#1F2D3A]/70">Preparing your payment details...</p>
         </div>
       </div>
     );
@@ -137,40 +137,88 @@ export default function PaymentWidget() {
   const chainConfig = getChainConfig(invoiceData.chain);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#E9F1F4] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 px-6 py-8 text-white text-center relative overflow-hidden">
+        <div className="bg-white px-6 py-8 text-center relative overflow-hidden border-b border-[#E9F1F4]">
           {/* Background pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent"></div>
-            <div className="absolute top-4 right-4 w-32 h-32 border border-white/20 rounded-full"></div>
-            <div className="absolute bottom-4 left-4 w-24 h-24 border border-white/20 rounded-full"></div>
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#2E8C96]/10 to-transparent"></div>
+            <div className="absolute top-4 right-4 w-32 h-32 border border-[#2E8C96]/10 rounded-full"></div>
+            <div className="absolute bottom-4 left-4 w-24 h-24 border border-[#2E8C96]/10 rounded-full"></div>
           </div>
           
           <div className="relative z-10">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border border-white/30">
-              <Wallet className="w-8 h-8" />
+            {/* Rift Finance Logo */}
+            <div className="flex items-center justify-center mx-auto mb-4">
+              <img 
+                src="/logo.png" 
+                alt="Rift Finance Logo" 
+                className="w-16 h-16 object-contain"
+              />
             </div>
-            <h1 className="text-2xl font-bold mb-1">Payment Request</h1>
+            <h1 className="text-2xl font-bold mb-1 text-[#1F2D3A]">Payment Request</h1>
             <div className="flex items-center justify-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
-              <span className="text-lg font-semibold tracking-wide">RIFT FINANCE</span>
-              <div className="w-2 h-2 bg-white rounded-full"></div>
+              <div className="w-2 h-2 bg-[#2E8C96] rounded-full"></div>
+              <span className="text-lg font-semibold tracking-wide text-[#2E8C96]">RIFT FINANCE</span>
+              <div className="w-2 h-2 bg-[#2E8C96] rounded-full"></div>
             </div>
-            <p className="text-purple-100">Secure blockchain payment</p>
+            <p className="text-[#1F2D3A]/70">Secure blockchain payment</p>
           </div>
         </div>
 
         {/* Payment Details */}
         <div className="p-6">
-          {/* Amount Display */}
-          <div className="bg-gray-50 rounded-xl p-6 mb-6 text-center">
-            <div className="text-3xl font-bold text-gray-900 mb-2">
-              {formatAmount(invoiceData.amount)} {invoiceData.token}
-            </div>
-            <div className="text-sm text-gray-600 mb-4">
-              on {chainConfig?.name || invoiceData.chain} network
+          {/* Payment Card Display */}
+          <div className="mb-6">
+            <div className="relative bg-gradient-to-br from-[#2E8C96] to-[#1F2D3A] rounded-2xl p-6 text-white shadow-xl overflow-hidden">
+              {/* Card Background Pattern */}
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute bottom-0 right-0 w-32 h-32 bg-white rounded-full translate-y-8 translate-x-8"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white rounded-full translate-y-8 -translate-x-8"></div>
+                <div className="absolute bottom-1/4 right-1/3 w-16 h-16 bg-white rounded-full opacity-50"></div>
+              </div>
+              
+              <div className="relative z-10">
+                {/* Card Header */}
+                <div className="flex justify-between items-start mb-6 relative z-20">
+                  <div className="relative z-30">
+                    <div className="text-sm font-medium text-white mb-1">Payment Request</div>
+                    <div className="text-xs text-white/70">Blockchain Network</div>
+                  </div>
+                  <div className="flex items-center gap-2 relative z-30">
+                    <img 
+                      src="/logo.png" 
+                      alt="Rift Finance" 
+                      className="w-8 h-8 object-contain"
+                    />
+                    <div className="text-xs font-semibold text-white">RIFT</div>
+                  </div>
+                </div>
+                
+                {/* Amount */}
+                <div className="mb-4">
+                  <div className="text-3xl font-bold mb-1">
+                    {formatAmount(invoiceData.amount)} {invoiceData.token}
+                  </div>
+                  <div className="text-sm opacity-80">
+                    {chainConfig?.name || invoiceData.chain} Network
+                  </div>
+                </div>
+                
+                {/* Card Footer */}
+                <div className="flex justify-between items-end">
+                  <div>
+                    <div className="text-xs opacity-60 mb-1">Powered by</div>
+                    <div className="text-sm font-semibold">RIFT FINANCE</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xl font-bold tracking-wider">RIFT</div>
+                  </div>
+                </div>
+              </div>
+              
+
             </div>
           </div>
 
@@ -178,24 +226,24 @@ export default function PaymentWidget() {
           <div className="mb-6">
             {!isConnected ? (
               <div className="text-center">
-                <p className="text-gray-600 mb-4">Connect your wallet to proceed with payment</p>
+                <p className="text-[#1F2D3A] mb-4">Connect your wallet to proceed with payment</p>
                 <w3m-button />
               </div>
             ) : (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <div className="bg-[#E9F1F4] border border-[#2E8C96]/30 rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="flex items-center gap-2 text-green-800">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="flex items-center gap-2 text-[#2E8C96]">
+                      <div className="w-2 h-2 bg-[#2E8C96] rounded-full"></div>
                       <span className="font-medium">Wallet Connected</span>
                     </div>
-                    <p className="text-green-700 text-sm mt-1">
+                    <p className="text-[#1F2D3A] text-sm mt-1">
                       {formatAddress(address || '')} on {chain?.name}
                     </p>
                   </div>
                   <button
                     onClick={() => disconnect()}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-[#1F2D3A] hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Disconnect wallet"
                   >
                     <LogOut className="w-4 h-4" />
@@ -299,7 +347,7 @@ export default function PaymentWidget() {
             <button
               onClick={handlePayment}
               disabled={isPending || isConfirming || isProcessing}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold py-4 px-6 rounded-xl hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full bg-[#2E8C96] text-white font-semibold py-4 px-6 rounded-xl hover:bg-[#2E8C96]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
             >
               {isPending || isConfirming || isProcessing ? (
                 <>
@@ -316,16 +364,16 @@ export default function PaymentWidget() {
           )}
 
           {/* Footer */}
-          <div className="mt-6 pt-6 border-t text-center">
+          <div className="mt-6 pt-6 border-t border-[#E9F1F4] text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <div className="w-1 h-1 bg-purple-500 rounded-full"></div>
-              <span className="text-xs font-semibold text-purple-600 tracking-wide">POWERED BY RIFT FINANCE</span>
-              <div className="w-1 h-1 bg-purple-500 rounded-full"></div>
+              <div className="w-1 h-1 bg-[#2E8C96] rounded-full"></div>
+              <span className="text-xs font-semibold text-[#2E8C96] tracking-wide">POWERED BY RIFT FINANCE</span>
+              <div className="w-1 h-1 bg-[#2E8C96] rounded-full"></div>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[#1F2D3A]/70">
               Secure payment powered by blockchain technology
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-[#1F2D3A]/50 mt-1">
               Transaction fees may apply from the network
             </p>
           </div>
