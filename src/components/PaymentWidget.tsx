@@ -118,7 +118,7 @@ export default function PaymentWidget() {
   };
 
   const convertToKES = (usdAmount: number): number => {
-    const exchangeRate = 129.7;
+    const exchangeRate = invoiceData?.exchangeRate || 129.7; // Fallback to 129.7 if not provided
     return usdAmount * exchangeRate;
   };
 

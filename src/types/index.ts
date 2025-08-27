@@ -5,6 +5,7 @@ export interface InvoiceData {
   address: string;
   userId?: string;
   projectId?: string;
+  exchangeRate?: number;
 }
 
 export interface MpesaPaymentData {
