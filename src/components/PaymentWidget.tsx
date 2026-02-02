@@ -37,6 +37,38 @@ export default function PaymentWidget() {
     }
   }, []);
 
+  // Auto-redirect for USDC payment after transaction is confirmed
+  useEffect(() => {
+    if (isConfirmed && hash && invoiceData?.originUrl) {
+      const returnUrl = buildReturnUrl(invoiceData.originUrl, {
+        hash,
+        ...(invoiceData.orderId && { order_id: invoiceData.orderId }),
+      });
+      // Small delay to show success message before redirect
+      const redirectTimer = setTimeout(() => {
+        window.location.href = returnUrl;
+      }, 2000);
+      
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [isConfirmed, hash, invoiceData?.originUrl, invoiceData?.orderId]);
+
+  // Auto-redirect for M-Pesa payment after transaction code is received
+  useEffect(() => {
+    if (transactionCode && invoiceData?.originUrl) {
+      // Show message for 5 seconds, then redirect
+      const redirectTimer = setTimeout(() => {
+        const returnUrl = buildReturnUrl(invoiceData.originUrl as string, {
+          transaction_code: transactionCode,
+          ...(invoiceData.orderId && { order_id: invoiceData.orderId }),
+        });
+        window.location.href = returnUrl;
+      }, 5000);
+      
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [transactionCode, invoiceData?.originUrl, invoiceData?.orderId]);
+
   const handleCopyAddress = async () => {
     if (!invoiceData) return;
     
@@ -475,18 +507,10 @@ export default function PaymentWidget() {
                           <p className="text-xs text-green-700 mb-1">Transaction hash:</p>
                           <p className="font-mono text-sm text-green-900 break-all mb-3">{hash}</p>
                           {invoiceData?.originUrl && (
-                            <button
-                              onClick={() => {
-                                const returnUrl = buildReturnUrl(invoiceData.originUrl as string, {
-                  hash,
-                  ...(invoiceData.orderId && { order_id: invoiceData.orderId }),
-                });
-                                window.location.href = returnUrl;
-                              }}
-                              className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold text-white bg-[#2E8C96] rounded-lg hover:bg-[#2E8C96]/90 transition-colors"
-                            >
-                              Return to original site
-                            </button>
+                            <div className="flex items-center gap-2 text-green-700">
+                              <div className="animate-spin w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full"></div>
+                              <span className="text-sm">Redirecting you back...</span>
+                            </div>
                           )}
                         </div>
                       )}
@@ -629,27 +653,22 @@ export default function PaymentWidget() {
             </button>
 
             {transactionCode && (
-              <div className="mt-4 bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-                <h4 className="text-sm font-semibold text-green-800 mb-1">Payment Initiated</h4>
-                <p className="text-xs text-green-700 mb-2">
-                  Your transaction code is:
+              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+                <h4 className="text-sm font-semibold text-blue-800 mb-2">Complete Payment on M-Pesa</h4>
+                <p className="text-xs text-blue-700 mb-3">
+                  Please complete the payment on your M-Pesa phone. You will be redirected automatically.
                 </p>
-                <p className="font-mono text-sm text-green-900 break-all mb-3">
-                  {transactionCode}
-                </p>
+                <div className="bg-white rounded-lg p-3 mb-3">
+                  <p className="text-xs text-blue-600 mb-1">Transaction Code:</p>
+                  <p className="font-mono text-sm text-blue-900 break-all font-semibold">
+                    {transactionCode}
+                  </p>
+                </div>
                 {invoiceData?.originUrl && (
-                  <button
-                    onClick={() => {
-                      const returnUrl = buildReturnUrl(invoiceData.originUrl as string, {
-                      transaction_code: transactionCode,
-                      ...(invoiceData.orderId && { order_id: invoiceData.orderId }),
-                    });
-                      window.location.href = returnUrl;
-                    }}
-                    className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold text-white bg-[#2E8C96] rounded-lg hover:bg-[#2E8C96]/90 transition-colors"
-                  >
-                    Return to original site
-                  </button>
+                  <div className="flex items-center justify-center gap-2 text-blue-700">
+                    <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                    <span className="text-xs">Redirecting in a few seconds...</span>
+                  </div>
                 )}
               </div>
             )}
