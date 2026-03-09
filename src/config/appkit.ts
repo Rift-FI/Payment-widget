@@ -1,6 +1,6 @@
 import { createAppKit } from '@reown/appkit/react'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
-import { base } from '@reown/appkit/networks'
+import { base, polygon, arbitrum, mainnet, celo } from '@reown/appkit/networks'
 
 // Reown Project ID - from cloud.reown.com
 const projectId = '99d90105116696e9de1d61526b0e0da0'
@@ -13,9 +13,11 @@ const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 }
 
-// Create Wagmi Adapter with custom RPC
+const networks: [typeof base, typeof polygon, typeof arbitrum, typeof mainnet, typeof celo] = [base, polygon, arbitrum, mainnet, celo]
+
+// Create Wagmi Adapter
 const wagmiAdapter = new WagmiAdapter({
-  networks: [base],
+  networks,
   projectId,
   ssr: false,
 })
@@ -24,7 +26,7 @@ const wagmiAdapter = new WagmiAdapter({
 export const appKit = createAppKit({
   adapters: [wagmiAdapter],
   projectId,
-  networks: [base],
+  networks,
   defaultNetwork: base,
   metadata,
   features: {
@@ -32,12 +34,12 @@ export const appKit = createAppKit({
     email: false,
     socials: [],
     emailShowWallets: false,
-    onramp: false, // Disable onramp to reduce API calls
-    swaps: false, // Disable swaps to reduce API calls
+    onramp: false,
+    swaps: false,
   },
   themeMode: 'light',
   themeVariables: {
-    '--w3m-accent': '#2E8C96', // Rift Finance teal
+    '--w3m-accent': '#2E8C96',
     '--w3m-color-mix': '#2E8C96',
     '--w3m-color-mix-strength': 50,
     '--w3m-border-radius-master': '12px',
