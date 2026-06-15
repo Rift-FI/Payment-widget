@@ -4,8 +4,21 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply text-rift-slate;
+    font-family: 'Inter', system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Layered atmosphere behind the payment card */
+    background-color: #eef4f6;
+    background-image:
+      radial-gradient(ellipse 60% 50% at 15% 0%, rgba(46, 140, 150, 0.16), transparent 60%),
+      radial-gradient(ellipse 55% 45% at 90% 100%, rgba(31, 45, 58, 0.12), transparent 55%);
+    background-attachment: fixed;
+  }
+
+  /* Numeric / amount rendering */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
   }
 }
 

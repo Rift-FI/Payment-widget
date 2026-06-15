@@ -19,6 +19,8 @@ export default function PaymentWidget() {
     shortcode: '',
     mobile_network: 'Safaricom'
   });
+  // For open QRs (amount=0): customer enters the amount themselves
+  const [enteredAmount, setEnteredAmount] = useState<string>('');
 
   const { address, isConnected, chain } = useAccount();
   const { writeContract, data: hash, isPending } = useWriteContract();
@@ -127,7 +129,7 @@ export default function PaymentWidget() {
         throw new Error(`${selectedToken} not supported on ${selectedChain}`);
       }
 
-      const value = parseUnits(invoiceData.amount.toString(), tokenConfig.decimals);
+      const value = parseUnits(effectiveAmount.toString(), tokenConfig.decimals);
 
       await writeContract({
         address: tokenConfig.address as `0x${string}`,
@@ -168,6 +170,11 @@ export default function PaymentWidget() {
     return `KES ${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   };
 
+  // When amount=0 (open QR) the customer enters an amount — use it everywhere
+  const isOpenAmount = invoiceData !== null && invoiceData.amount === 0;
+  const effectiveAmount = isOpenAmount ? parseFloat(enteredAmount) || 0 : (invoiceData?.amount ?? 0);
+  const enteredAmountValid = !isOpenAmount || (parseFloat(enteredAmount) > 0);
+
   const buildReturnUrl = (baseUrl: string, params: Record<string, string>): string => {
     const entries = Object.entries(params).filter(([, v]) => v != null && v !== '');
     try {
@@ -205,7 +212,7 @@ export default function PaymentWidget() {
         shortcode: mpesaData.shortcode,
         mobile_network: mpesaData.mobile_network,
         country_code: 'KES',
-        amount: invoiceData.amount,
+        amount: effectiveAmount,
         chain: 'BASE',
         asset: 'USDC',
         address: invoiceData.address,
@@ -343,15 +350,19 @@ export default function PaymentWidget() {
 
                 <div className="mb-4">
                   <div className="text-3xl font-bold mb-1">
-                    {paymentMethod === 'mpesa'
-                      ? formatKES(convertToKES(invoiceData.amount))
-                      : `${formatAmount(invoiceData.amount)} ${selectedToken}`
+                    {isOpenAmount && !enteredAmountValid
+                      ? 'Enter amount below'
+                      : paymentMethod === 'mpesa'
+                        ? formatKES(convertToKES(effectiveAmount))
+                        : `${formatAmount(effectiveAmount)} ${selectedToken}`
                     }
                   </div>
                   <div className="text-sm opacity-80">
                     {paymentMethod === 'mpesa'
                       ? 'Mobile Money Payment'
-                      : `${formatAmount(invoiceData.amount)} ${selectedToken} on ${getChainConfig(selectedChain)?.name}`
+                      : effectiveAmount > 0
+                        ? `${formatAmount(effectiveAmount)} ${selectedToken} on ${getChainConfig(selectedChain)?.name}`
+                        : 'Mobile Money Payment'
                     }
                   </div>
                 </div>
@@ -368,6 +379,67 @@ export default function PaymentWidget() {
               </div>
             </div>
           </div>
+
+          {/* Open QR: customer enters the amount */}
+          {isOpenAmount && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#2E8C96]/10 border border-[#2E8C96]/20">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-[#2E8C96] opacity-60 animate-ping" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#2E8C96]" />
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#2E8C96]">Open payment</span>
+                </div>
+                <span className="text-xs text-[#1F2D3A]/45">Enter any amount</span>
+              </div>
+
+              {/* Amount stage */}
+              <div className="relative overflow-hidden rounded-2xl border border-[#E9F1F4] bg-gradient-to-b from-white to-[#F4F8FA] p-6 shadow-[0_8px_24px_-12px_rgba(46,140,150,0.25)]">
+                <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-[#2E8C96]/10 blur-2xl" />
+                <p className="relative text-center text-[10px] font-bold uppercase tracking-[0.18em] text-[#1F2D3A]/40 mb-2">
+                  Amount to pay
+                </p>
+                <div className="relative flex items-center justify-center gap-1">
+                  <span className="text-2xl font-semibold text-[#1F2D3A]/35 mt-1">$</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="0.00"
+                    autoFocus
+                    value={enteredAmount}
+                    onChange={(e) => setEnteredAmount(e.target.value)}
+                    className="w-full max-w-[200px] bg-transparent text-center text-5xl font-bold tracking-tight text-[#1F2D3A] placeholder:text-[#1F2D3A]/15 focus:outline-none"
+                  />
+                </div>
+                <p className="relative text-center text-xs text-[#1F2D3A]/45 mt-2 h-4">
+                  {effectiveAmount > 0 ? `≈ ${formatKES(convertToKES(effectiveAmount))}` : ' '}
+                </p>
+
+                {/* Quick amounts */}
+                <div className="relative grid grid-cols-4 gap-2 mt-5">
+                  {[5, 10, 20, 50].map((amt) => {
+                    const active = parseFloat(enteredAmount) === amt;
+                    return (
+                      <button
+                        key={amt}
+                        onClick={() => setEnteredAmount(String(amt))}
+                        className={`py-2 rounded-xl text-sm font-semibold border-2 transition-all active:scale-95 ${
+                          active
+                            ? 'border-[#2E8C96] bg-[#2E8C96]/10 text-[#2E8C96]'
+                            : 'border-[#E9F1F4] bg-white text-[#1F2D3A] hover:border-[#2E8C96]/50'
+                        }`}
+                      >
+                        ${amt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Payment Method Selection */}
           <div className="mb-6">
@@ -550,7 +622,7 @@ export default function PaymentWidget() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-[#1F2D3A]/70">Amount</span>
-                      <span className="font-medium text-[#1F2D3A]">{formatAmount(invoiceData.amount)} {selectedToken}</span>
+                      <span className="font-medium text-[#1F2D3A]">{formatAmount(effectiveAmount)} {selectedToken}</span>
                     </div>
                     <div className="border-t border-[#1F2D3A]/10 pt-2 mt-2">
                       <div className="flex items-center justify-between">
@@ -584,7 +656,7 @@ export default function PaymentWidget() {
               {isConnected && !isConfirmed && (
                 <button
                   onClick={handlePayment}
-                  disabled={isPending || isConfirming || isProcessing}
+                  disabled={isPending || isConfirming || isProcessing || !enteredAmountValid}
                   className="w-full bg-[#2E8C96] text-white font-semibold py-4 px-6 rounded-xl hover:bg-[#2E8C96]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
                 >
                   {isPending || isConfirming || isProcessing ? (
@@ -594,7 +666,7 @@ export default function PaymentWidget() {
                     </>
                   ) : (
                     <>
-                      Pay {formatAmount(invoiceData.amount)} {selectedToken} on {getChainConfig(selectedChain)?.name}
+                      Pay {formatAmount(effectiveAmount)} {selectedToken} on {getChainConfig(selectedChain)?.name}
                       <ChevronRight className="w-4 h-4" />
                     </>
                   )}
@@ -613,10 +685,10 @@ export default function PaymentWidget() {
               <div className="bg-[#E9F1F4] rounded-xl p-4 mb-5">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-[#1F2D3A] mb-1">
-                    {formatKES(convertToKES(invoiceData.amount))}
+                    {effectiveAmount > 0 ? formatKES(convertToKES(effectiveAmount)) : '—'}
                   </div>
                   <div className="text-sm text-[#1F2D3A]/70">
-                    ≈ {formatAmount(invoiceData.amount)} USD
+                    ≈ {effectiveAmount > 0 ? formatAmount(effectiveAmount) : '0'} USD
                   </div>
                 </div>
               </div>
@@ -649,7 +721,7 @@ export default function PaymentWidget() {
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
                     <span className="text-[#1F2D3A]/70">Amount</span>
-                    <span className="font-medium text-[#1F2D3A]">{formatKES(convertToKES(invoiceData.amount))}</span>
+                    <span className="font-medium text-[#1F2D3A]">{formatKES(convertToKES(effectiveAmount))}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#1F2D3A]/70">Method</span>
@@ -678,7 +750,7 @@ export default function PaymentWidget() {
               {/* Pay Button */}
               <button
                 onClick={handleMpesaPayment}
-                disabled={isProcessing || !mpesaData.shortcode || !validateMpesaNumber(mpesaData.shortcode)}
+                disabled={isProcessing || !mpesaData.shortcode || !validateMpesaNumber(mpesaData.shortcode) || !enteredAmountValid}
                 className="w-full bg-[#2E8C96] text-white py-4 px-6 rounded-xl font-semibold hover:bg-[#2E8C96]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
               >
                 {isProcessing ? (
@@ -688,7 +760,7 @@ export default function PaymentWidget() {
                   </>
                 ) : (
                   <>
-                    Pay {formatKES(convertToKES(invoiceData.amount))} via M-Pesa
+                    Pay {formatKES(convertToKES(effectiveAmount))} via M-Pesa
                     <ChevronRight className="w-4 h-4" />
                   </>
                 )}

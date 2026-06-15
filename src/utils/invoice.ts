@@ -2,27 +2,26 @@ import { InvoiceData } from '../types';
 
 export function decodeInvoice(encodedInvoice: string): InvoiceData | null {
   try {
-    // Decode the base64 string
     const decodedString = atob(encodedInvoice);
-    
-    // Parse the JSON
     const invoiceData: InvoiceData = JSON.parse(decodedString);
-    
-    // Validate the required fields
-    if (!invoiceData.chain || !invoiceData.token || !invoiceData.amount || !invoiceData.address) {
+
+    // amount=0 is allowed — it means "open" (customer enters amount)
+    if (!invoiceData.chain || !invoiceData.token || !invoiceData.address) {
       throw new Error('Invalid invoice data: missing required fields');
     }
-    
-    // Validate address format (basic hex check)
+
+    if (invoiceData.amount === undefined || invoiceData.amount === null) {
+      throw new Error('Invalid invoice data: amount is missing');
+    }
+
     if (!invoiceData.address.match(/^0x[a-fA-F0-9]{40}$/)) {
       throw new Error('Invalid address format');
     }
-    
-    // Validate amount is positive
-    if (invoiceData.amount <= 0) {
-      throw new Error('Invalid amount: must be positive');
+
+    if (invoiceData.amount < 0) {
+      throw new Error('Invalid amount: must not be negative');
     }
-    
+
     return invoiceData;
   } catch (error) {
     console.error('Failed to decode invoice:', error);
