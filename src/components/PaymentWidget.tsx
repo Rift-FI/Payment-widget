@@ -22,22 +22,22 @@ type Screen =
 
 type Overlay = null | 'currency' | 'disconnect';
 
-const CHAIN_META: Record<string, { color: string; mono: string; rec?: boolean; eth?: boolean }> = {
-  BASE: { color: '#0052FF', mono: 'B', rec: true },
-  POLYGON: { color: '#7B3FE4', mono: 'P' },
-  ARBITRUM: { color: '#28A0F0', mono: 'A' },
-  ETHEREUM: { color: '#627EEA', mono: 'E', eth: true },
-  CELO: { color: '#35D07F', mono: 'C' },
-  LISK: { color: '#2362F1', mono: 'L' },
+const CHAIN_META: Record<string, { icon: string; rec?: boolean }> = {
+  BASE: { icon: 'https://icons.llamao.fi/icons/chains/rsz_base?w=48&h=48', rec: true },
+  POLYGON: { icon: 'https://icons.llamao.fi/icons/chains/rsz_polygon?w=48&h=48' },
+  ARBITRUM: { icon: 'https://icons.llamao.fi/icons/chains/rsz_arbitrum?w=48&h=48' },
+  ETHEREUM: { icon: 'https://icons.llamao.fi/icons/chains/rsz_ethereum?w=48&h=48' },
+  CELO: { icon: 'https://icons.llamao.fi/icons/chains/rsz_celo?w=48&h=48' },
+  LISK: { icon: 'https://icons.llamao.fi/icons/chains/rsz_lisk?w=48&h=48' },
 };
 
-const TOKEN_META: Record<string, { color: string; sym: string }> = {
-  USDC: { color: '#2775CA', sym: '$' },
-  USDT: { color: '#26A17B', sym: 'T' },
+const TOKEN_META: Record<string, { icon: string }> = {
+  USDC: { icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png' },
+  USDT: { icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png' },
 };
 
 function flagUrl(cc: string): string {
-  return `https://flagcdn.com/w80/${cc}.png`;
+  return `https://flagcdn.com/${cc}.svg`;
 }
 
 function fmt(n: number, dec: number): string {
@@ -445,7 +445,6 @@ export default function PaymentWidget() {
       <style>{INLINE_KEYFRAMES}</style>
       <div className="min-h-screen flex items-center justify-center p-5 sm:p-10" style={{ background: '#E9F1F4', fontFamily: 'Inter, system-ui, sans-serif', WebkitFontSmoothing: 'antialiased' }}>
         <div className="relative w-full max-w-[390px] bg-white overflow-hidden flex flex-col" style={{ height: 844, maxHeight: 'calc(100vh - 32px)', borderRadius: 42, border: '1px solid rgba(15,42,56,.06)', boxShadow: '0 24px 60px -24px rgba(15,42,56,.36)' }}>
-          <StatusBar />
           <div className="flex-1 relative flex flex-col" style={{ overflowY: 'auto' }}>
             {screen === 'loading' && <LoadingScreen />}
             {screen === 'error' && <ErrorScreen onRetry={() => window.location.reload()} message={errorMsg || 'We couldn’t find this payment link'} />}
@@ -464,7 +463,6 @@ export default function PaymentWidget() {
                 onContinue={() => setScreen('method')}
                 refreshRate={refreshRates}
                 canContinue={localNum > 0 && !!currencyRate}
-                warn={localNum > 0 && usdcAmount > 0 && usdcAmount < 0.5 ? 'Gas might cost more than the payment on small chains. Try Base for cheaper gas.' : (usdcAmount > 10000 ? 'You’re about to send a large amount. Double check the recipient.' : null)}
               />
             )}
 
@@ -624,22 +622,6 @@ const SCREEN = { animation: 'pw_screenIn .18s ease both' } as const;
 const ACCENT = '#2E8C96';
 const ACCENT_DARK = '#256E77';
 
-function StatusBar() {
-  return (
-    <div style={{ height: 50, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', background: '#fff' }}>
-      <span style={{ font: '600 14px Inter', color: '#0B1620' }}>9:41</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 11 }}>
-          {[5, 7, 9, 11].map(h => <div key={h} style={{ width: 3, height: h, background: '#0B1620', borderRadius: 1 }} />)}
-        </div>
-        <div style={{ position: 'relative', width: 24, height: 12, border: '1.5px solid #0B1620', borderRadius: 3, padding: 1.5 }}>
-          <div style={{ width: '72%', height: '100%', background: '#0B1620', borderRadius: 1 }} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function PoweredBy() {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16, color: '#94A3B8', font: '500 12px Inter' }}>
@@ -696,10 +678,9 @@ interface AmountScreenProps {
   onContinue: () => void;
   refreshRate: () => void;
   canContinue: boolean;
-  warn: string | null;
 }
 
-function AmountScreen({ currency, amountDisplay, usdDisplay, rateLine, rateStale, pad, pressKey, onOpenCurrency, onContinue, refreshRate, canContinue, warn }: AmountScreenProps) {
+function AmountScreen({ currency, amountDisplay, usdDisplay, rateLine, rateStale, pad, pressKey, onOpenCurrency, onContinue, refreshRate, canContinue }: AmountScreenProps) {
   const meta = metaFor(currency);
   return (
     <div style={{ flex: '1 0 auto', display: 'flex', flexDirection: 'column', padding: '20px 24px 26px', ...SCREEN }}>
@@ -722,13 +703,6 @@ function AmountScreen({ currency, amountDisplay, usdDisplay, rateLine, rateStale
           <span style={{ color: '#94A3B8' }}>{rateLine}</span>
           {rateStale && <span style={{ color: ACCENT, fontWeight: 600 }}>Refresh</span>}
         </button>
-
-        {warn && (
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: 'rgba(217,119,6,.08)', border: '1px solid rgba(217,119,6,.22)', borderRadius: 14, padding: '12px 14px', maxWidth: 300 }}>
-            <span style={{ color: '#D97706', font: '700 14px Sora', flex: 'none' }}>!</span>
-            <span style={{ font: '500 13px Inter', color: '#92400E', lineHeight: 1.45 }}>{warn}</span>
-          </div>
-        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 4, marginBottom: 12 }}>
@@ -928,11 +902,10 @@ function ConnectedScreen({ merchant, usdDisplay, token, localDisplay, walletName
               onClick={() => onSelectChain(c.key)}
               style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 16, padding: '12px 11px', cursor: 'pointer', textAlign: 'left' }}
             >
-              <div style={{ width: 30, height: 30, borderRadius: '50%', background: meta.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '700 13px Sora', flex: 'none' }}>{meta.mono}</div>
+              <img src={meta.icon} alt={c.name} style={{ width: 30, height: 30, borderRadius: '50%', flex: 'none', objectFit: 'cover', background: '#fff' }} />
               <div style={{ minWidth: 0 }}>
                 <div style={{ font: '600 14px Inter', color: '#0B1620' }}>{c.name}</div>
                 {meta.rec && <div style={{ font: '600 11px Inter', color: ACCENT }}>Recommended</div>}
-                {meta.eth && <div style={{ font: '600 11px Inter', color: '#D97706' }}>Higher fees</div>}
               </div>
               {selected && (
                 <>
@@ -956,7 +929,7 @@ function ConnectedScreen({ merchant, usdDisplay, token, localDisplay, walletName
               onClick={() => onSelectToken(t)}
               style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 14, padding: 13, cursor: 'pointer' }}
             >
-              <div style={{ width: 24, height: 24, borderRadius: '50%', background: meta.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '700 13px Inter' }}>{meta.sym}</div>
+              <img src={meta.icon} alt={t} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
               <span style={{ font: '600 15px Inter', color: '#0B1620' }}>{t}</span>
               {selected && <div style={{ position: 'absolute', inset: 0, border: `2px solid ${ACCENT}`, borderRadius: 14, background: 'rgba(46,140,150,.06)', pointerEvents: 'none' }} />}
             </button>
