@@ -1,6 +1,11 @@
 export interface CurrencyRate {
   currency: string;
-  onramp: number;
+  name?: string;
+  symbol?: string;
+  decimals?: number;
+  /** Local fiat per 1 USDC for onramp (fiat→crypto). null = corridor not supported on this side. */
+  onramp: number | null;
+  /** Local fiat per 1 USDC for offramp (crypto→fiat). Always present. */
   offramp: number;
   isDefault: boolean;
   error?: string;
@@ -27,13 +32,14 @@ export async function fetchRates(): Promise<RatesResponse> {
   return res.json();
 }
 
-export function localToUsdc(localAmount: number, onramp: number): number {
-  if (!onramp || onramp <= 0) return 0;
-  return localAmount / onramp;
+export function localToUsdc(localAmount: number, rate: number | null): number {
+  if (!rate || rate <= 0) return 0;
+  return localAmount / rate;
 }
 
-export function usdcToLocal(usdcAmount: number, onramp: number): number {
-  return usdcAmount * onramp;
+export function usdcToLocal(usdcAmount: number, rate: number | null): number {
+  if (!rate || rate <= 0) return 0;
+  return usdcAmount * rate;
 }
 
 export interface CurrencyMeta {
