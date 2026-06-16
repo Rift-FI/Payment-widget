@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useDisconnect } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import { parseUnits } from 'viem';
-import type { InvoiceData, MpesaPaymentData } from '../types';
+import type { InvoiceData } from '../types';
 import { getInvoiceFromUrl, formatAddress } from '../utils/invoice';
 import { getChainConfig, getTokenConfig, AVAILABLE_CHAINS } from '../config/chains';
 import { fetchRates, localToUsdc, usdcToLocal, metaFor, type CurrencyRate, type RatesResponse } from '../utils/rates';
@@ -12,12 +12,9 @@ type Screen =
   | 'error'
   | 'amount'
   | 'method'
-  | 'mpesaEntry'
-  | 'mpesaWait'
   | 'connected'
   | 'tx'
   | 'success'
-  | 'mpesaSuccess'
   | 'txFailed';
 
 type Overlay = null | 'currency' | 'disconnect';
@@ -28,7 +25,6 @@ const CHAIN_META: Record<string, { icon: string; rec?: boolean }> = {
   ARBITRUM: { icon: 'https://icons.llamao.fi/icons/chains/rsz_arbitrum?w=48&h=48' },
   ETHEREUM: { icon: 'https://icons.llamao.fi/icons/chains/rsz_ethereum?w=48&h=48' },
   CELO: { icon: 'https://icons.llamao.fi/icons/chains/rsz_celo?w=48&h=48' },
-  LISK: { icon: 'https://icons.llamao.fi/icons/chains/rsz_lisk?w=48&h=48' },
 };
 
 const TOKEN_META: Record<string, { icon: string }> = {
@@ -82,10 +78,6 @@ export default function PaymentWidget() {
   const [selectedChain, setSelectedChain] = useState<string>('BASE');
   const [selectedToken, setSelectedToken] = useState<string>('USDC');
   const [search, setSearch] = useState('');
-
-  const [mpesaPhone, setMpesaPhone] = useState('');
-  const [mpesaTxCode, setMpesaTxCode] = useState<string | null>(null);
-  const [mpesaSending, setMpesaSending] = useState(false);
 
   const [isSwitchingChain, setIsSwitchingChain] = useState(false);
 
@@ -203,19 +195,6 @@ export default function PaymentWidget() {
     }
   }, [writeError, screen]);
 
-  useEffect(() => {
-    if (mpesaTxCode && invoiceData?.originUrl) {
-      const t = setTimeout(() => {
-        const returnUrl = buildReturnUrl(invoiceData.originUrl as string, {
-          transaction_code: mpesaTxCode,
-          ...(invoiceData.orderId && { order_id: invoiceData.orderId }),
-        });
-        window.location.href = returnUrl;
-      }, 5000);
-      return () => clearTimeout(t);
-    }
-  }, [mpesaTxCode, invoiceData]);
-
   const isOpenAmount = invoiceData !== null && invoiceData.amount === 0;
   const currencyRate: CurrencyRate | null = useMemo(() => {
     if (!rates) return null;
@@ -250,7 +229,6 @@ export default function PaymentWidget() {
   const usdDisplay = fmtUsd(usdcAmount);
   const localDisplay = `${currency} ${fmt(localDisplayNum, metaFor(currency).dec)}`;
 
-  const showMpesa = (rates?.detectedCountry === 'KE') && (invoiceData?.address ? true : false);
   const walletChainKey = chainKeyFromId(chain?.id);
   const needSwitch = isConnected && walletChainKey !== selectedChain;
   const chainCfg = getChainConfig(selectedChain);
@@ -329,59 +307,6 @@ export default function PaymentWidget() {
       console.error('Payment failed:', err);
       setErrorMsg(err.message || 'Payment failed');
       setScreen('txFailed');
-    }
-  };
-
-  const handleMpesaSend = async () => {
-    if (!invoiceData || !invoiceData.userId || !invoiceData.projectId) {
-      setErrorMsg('Missing user or project info on the payment link.');
-      return;
-    }
-    const valid = /^(?:\+?254|0)?([17][0-9]{8})$/.test(mpesaPhone);
-    if (!valid) {
-      setErrorMsg('Enter a valid Safaricom number (e.g. 0712 345 678)');
-      return;
-    }
-    setMpesaSending(true);
-    setErrorMsg(null);
-    setScreen('mpesaWait');
-    try {
-      const paymentData: MpesaPaymentData = {
-        shortcode: mpesaPhone,
-        mobile_network: 'Safaricom',
-        country_code: 'KES',
-        amount: usdcAmount,
-        chain: 'BASE',
-        asset: 'USDC',
-        address: invoiceData.address,
-        user_id: invoiceData.userId,
-        project_id: invoiceData.projectId,
-      };
-      const q = new URLSearchParams({
-        shortcode: paymentData.shortcode,
-        amount: paymentData.amount.toString(),
-        chain: paymentData.chain,
-        asset: paymentData.asset,
-        mobile_network: paymentData.mobile_network,
-        country_code: paymentData.country_code,
-        address: paymentData.address,
-        user_id: paymentData.user_id,
-        project_id: paymentData.project_id,
-        ...(invoiceData.invoiceId && { invoice_id: invoiceData.invoiceId }),
-      });
-      const res = await fetch(`https://payment.riftfi.xyz/pay/open-ramp?${q.toString()}`);
-      if (!res.ok) throw new Error('Failed to initiate M-Pesa payment.');
-      const data = await res.json();
-      const code = data?.data?.data?.transaction_code || data?.data?.transaction_code || data?.transaction_code;
-      if (!code) throw new Error('Missing transaction code.');
-      setMpesaTxCode(code);
-      setScreen('mpesaSuccess');
-    } catch (e: any) {
-      console.error('M-Pesa send failed:', e);
-      setErrorMsg(e.message || 'M-Pesa payment failed.');
-      setScreen('mpesaEntry');
-    } finally {
-      setMpesaSending(false);
     }
   };
 
@@ -483,42 +408,6 @@ export default function PaymentWidget() {
                 token={selectedToken}
                 localDisplay={localDisplay}
                 onOpenWallet={() => openAppkit()}
-                showMpesa={showMpesa}
-                onChooseMpesa={() => setScreen('mpesaEntry')}
-              />
-            )}
-
-            {screen === 'mpesaEntry' && (
-              <MpesaEntryScreen
-                phone={mpesaPhone}
-                setPhone={setMpesaPhone}
-                usdDisplay={usdDisplay}
-                localDisplay={localDisplay}
-                onBack={() => setScreen('method')}
-                onSend={handleMpesaSend}
-                sending={mpesaSending}
-                error={errorMsg}
-              />
-            )}
-
-            {screen === 'mpesaWait' && (
-              <MpesaWaitScreen
-                localDisplay={localDisplay}
-                onCancel={() => setScreen('mpesaEntry')}
-              />
-            )}
-
-            {screen === 'mpesaSuccess' && (
-              <SuccessScreen
-                usdDisplay={usdDisplay}
-                token="USDC"
-                merchant={merchantLabel}
-                localDisplay={localDisplay}
-                hash={mpesaTxCode || ''}
-                explorerUrl="#"
-                shortHash={mpesaTxCode || ''}
-                onDone={() => { setMpesaTxCode(null); setScreen(isOpenAmount ? 'amount' : 'method'); }}
-                isMpesa
               />
             )}
 
@@ -745,11 +634,9 @@ interface MethodScreenProps {
   token: string;
   localDisplay: string;
   onOpenWallet: () => void;
-  showMpesa: boolean;
-  onChooseMpesa: () => void;
 }
 
-function MethodScreen({ showBack, onBack, usdDisplay, token, localDisplay, onOpenWallet, showMpesa, onChooseMpesa }: MethodScreenProps) {
+function MethodScreen({ showBack, onBack, usdDisplay, token, localDisplay, onOpenWallet }: MethodScreenProps) {
   return (
     <div style={{ flex: '1 0 auto', display: 'flex', flexDirection: 'column', padding: '20px 24px 26px', ...SCREEN }}>
       {showBack && (
@@ -779,83 +666,8 @@ function MethodScreen({ showBack, onBack, usdDisplay, token, localDisplay, onOpe
         <span style={{ color: '#CBD5E1', fontSize: 22 }}>›</span>
       </button>
 
-      {showMpesa && (
-        <button onClick={onChooseMpesa} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 20, padding: '16px 18px', cursor: 'pointer', textAlign: 'left' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 46, padding: '0 12px', borderRadius: 12, background: '#4CAF50', flex: 'none' }}>
-            <span style={{ font: '800 17px Sora', color: '#fff', letterSpacing: '.01em', whiteSpace: 'nowrap' }}>M-PESA</span>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ font: '600 16px Inter', color: '#0B1620' }}>Pay with M-Pesa</div>
-            <div style={{ font: '400 13px Inter', color: '#64748B', marginTop: 2 }}>Safaricom mobile money</div>
-          </div>
-          <span style={{ color: '#CBD5E1', fontSize: 22 }}>›</span>
-        </button>
-      )}
-
       <div style={{ flex: 1 }} />
       <PoweredBy />
-    </div>
-  );
-}
-
-interface MpesaEntryProps {
-  phone: string;
-  setPhone: (v: string) => void;
-  usdDisplay: string;
-  localDisplay: string;
-  onBack: () => void;
-  onSend: () => void;
-  sending: boolean;
-  error: string | null;
-}
-
-function MpesaEntryScreen({ phone, setPhone, usdDisplay, localDisplay, onBack, onSend, sending, error }: MpesaEntryProps) {
-  return (
-    <div style={{ flex: '1 0 auto', display: 'flex', flexDirection: 'column', padding: '20px 24px 26px', ...SCREEN }}>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={onBack} aria-label="Back" style={{ width: 38, height: 38, borderRadius: '50%', border: '1px solid #E2E8F0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18, color: '#1F2D3A', flex: 'none' }}>←</button>
-          <div style={{ font: '600 17px Inter', color: '#0B1620' }}>Pay with M-Pesa</div>
-        </div>
-        <div style={{ marginTop: 26 }}>
-          <label style={{ font: '600 13px Inter', color: '#334155', display: 'block', marginBottom: 8 }}>Safaricom number</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #E2E8F0', borderRadius: 14, padding: '14px 16px', background: '#fff' }}>
-            <span style={{ font: '600 16px Inter', color: '#64748B' }}>+254</span>
-            <input
-              inputMode="numeric"
-              placeholder="712 345 678"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              style={{ flex: 1, border: 'none', outline: 'none', font: '600 16px Inter', color: '#0B1620', background: 'transparent' }}
-            />
-          </div>
-          <p style={{ font: '400 13px Inter', color: '#64748B', margin: '12px 2px 0', lineHeight: 1.5 }}>We’ll send a payment request to your phone. Approve it with your M-Pesa PIN.</p>
-        </div>
-        <div style={{ background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 16, padding: '14px 16px', marginTop: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ font: '500 13px Inter', color: '#64748B' }}>You’ll pay</span>
-          <span style={{ font: '700 16px Sora', color: '#0B1620' }}>{usdDisplay} · {localDisplay}</span>
-        </div>
-        {error && (
-          <div style={{ background: 'rgba(225,29,72,.07)', border: '1px solid rgba(225,29,72,.22)', borderRadius: 14, padding: '12px 14px', marginTop: 14, font: '500 13px Inter', color: '#9F1239', lineHeight: 1.45 }}>{error}</div>
-        )}
-      </div>
-      <div style={{ flex: 1 }} />
-      <button onClick={onSend} disabled={sending} style={{ width: '100%', border: 'none', borderRadius: 16, background: sending ? '#CBD5E1' : '#4CAF50', color: '#fff', font: '600 17px Inter', padding: 17, cursor: sending ? 'not-allowed' : 'pointer' }}>
-        {sending ? 'Sending...' : 'Send payment request'}
-      </button>
-    </div>
-  );
-}
-
-function MpesaWaitScreen({ localDisplay, onCancel }: { localDisplay: string; onCancel: () => void }) {
-  return (
-    <div style={{ flex: '1 0 auto', display: 'flex', flexDirection: 'column', padding: '20px 24px 26px', ...SCREEN }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 18 }}>
-        <div style={{ width: 34, height: 34, borderRadius: '50%', border: '3px solid #E2E8F0', borderTopColor: '#4CAF50', animation: 'pw_spin .8s linear infinite' }} />
-        <h1 style={{ margin: 0, font: '700 21px Sora', color: '#0B1620' }}>Check your phone</h1>
-        <p style={{ margin: 0, font: '400 15px Inter', color: '#64748B', lineHeight: 1.5, maxWidth: 280 }}>Enter your M-Pesa PIN to confirm the {localDisplay} payment.</p>
-        <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#64748B', font: '600 14px Inter', cursor: 'pointer', padding: 8 }}>Cancel</button>
-      </div>
     </div>
   );
 }
@@ -1000,10 +812,9 @@ interface SuccessProps {
   explorerUrl: string;
   shortHash: string;
   onDone: () => void;
-  isMpesa?: boolean;
 }
 
-function SuccessScreen({ usdDisplay, token, merchant, localDisplay, hash, explorerUrl, shortHash, onDone, isMpesa }: SuccessProps) {
+function SuccessScreen({ usdDisplay, token, merchant, localDisplay, hash, explorerUrl, shortHash, onDone }: SuccessProps) {
   return (
     <div style={{ flex: '1 0 auto', display: 'flex', flexDirection: 'column', padding: '24px 26px 26px', ...SCREEN }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 18 }}>
@@ -1011,14 +822,14 @@ function SuccessScreen({ usdDisplay, token, merchant, localDisplay, hash, explor
           <circle cx="42" cy="42" r="42" fill={ACCENT} />
           <path d="M24 43 L37 56 L60 30" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="70" strokeDashoffset="70" style={{ animation: 'pw_drawCheck .5s .22s ease forwards' }} />
         </svg>
-        <h1 style={{ margin: 0, font: '700 24px Sora', color: '#0B1620', letterSpacing: '-.01em' }}>{isMpesa ? 'Payment initiated' : 'Payment sent'}</h1>
+        <h1 style={{ margin: 0, font: '700 24px Sora', color: '#0B1620', letterSpacing: '-.01em' }}>Payment sent</h1>
         <div>
           <div style={{ font: '500 16px Inter', color: '#334155' }}>{usdDisplay} {token} paid to {merchant}</div>
           <div style={{ font: '500 14px Inter', color: '#94A3B8', marginTop: 4 }}>≈ {localDisplay}</div>
         </div>
         {hash && (
           <a href={explorerUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 999, padding: '9px 14px', textDecoration: 'none' }}>
-            <span style={{ font: '500 12px Inter', color: '#64748B' }}>{isMpesa ? 'Code' : 'Transaction'}</span>
+            <span style={{ font: '500 12px Inter', color: '#64748B' }}>Transaction</span>
             <span style={{ font: '500 12px "JetBrains Mono", monospace', color: '#1F2D3A' }}>{shortHash}</span>
             <span style={{ color: ACCENT, fontSize: 13 }}>↗</span>
           </a>
@@ -1062,6 +873,8 @@ function CurrencyOverlay({ search, setSearch, african, reserve, selected, onSele
     const rateForLabel = c.onramp ?? c.offramp;
     const rateText = c.currency === 'USD'
       ? 'Base currency'
+      : rateForLabel === null
+      ? 'Rate unavailable'
       : `1 USD ≈ ${rateForLabel.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${c.currency}`;
     return (
       <button

@@ -24,5 +24,5 @@ export interface MpesaPaymentData {
 }
 
 // Simple types for the payment widget
-export type SupportedChain = 'BASE' | 'POLYGON' | 'ARBITRUM' | 'ETHEREUM' | 'CELO' | 'LISK';
+export type SupportedChain = 'BASE' | 'POLYGON' | 'ARBITRUM' | 'ETHEREUM' | 'CELO';
 export type SupportedToken = 'USDC' | 'USDT';

@@ -5,8 +5,8 @@ export interface CurrencyRate {
   decimals?: number;
   /** Local fiat per 1 USDC for onramp (fiat→crypto). null = corridor not supported on this side. */
   onramp: number | null;
-  /** Local fiat per 1 USDC for offramp (crypto→fiat). Always present. */
-  offramp: number;
+  /** Local fiat per 1 USDC for offramp (crypto→fiat). null = corridor not supported on this side. */
+  offramp: number | null;
   isDefault: boolean;
   error?: string;
 }

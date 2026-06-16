@@ -1,6 +1,6 @@
 import { createAppKit } from '@reown/appkit/react'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
-import { base, polygon, arbitrum, mainnet, celo, lisk } from '@reown/appkit/networks'
+import { base, polygon, arbitrum, mainnet, celo } from '@reown/appkit/networks'
 
 // Reown Project ID - from cloud.reown.com
 const projectId = '99d90105116696e9de1d61526b0e0da0'
@@ -13,7 +13,7 @@ const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 }
 
-const networks: [typeof base, typeof polygon, typeof arbitrum, typeof mainnet, typeof celo, typeof lisk] = [base, polygon, arbitrum, mainnet, celo, lisk]
+const networks: [typeof base, typeof polygon, typeof arbitrum, typeof mainnet, typeof celo] = [base, polygon, arbitrum, mainnet, celo]
 
 // Create Wagmi Adapter
 const wagmiAdapter = new WagmiAdapter({

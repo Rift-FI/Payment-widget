@@ -1,4 +1,4 @@
-import { base, polygon, arbitrum, mainnet, celo, lisk } from 'viem/chains'
+import { base, polygon, arbitrum, mainnet, celo } from 'viem/chains'
 import type { Chain } from 'viem'
 
 export interface TokenConfig {
@@ -48,8 +48,6 @@ const TOKENS = {
   CELO_USDC: { symbol: 'USDC', address: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', decimals: 6, name: 'USD Coin' },
   CELO_USDT: { symbol: 'USDT', address: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e', decimals: 6, name: 'Tether USD' },
 
-  LISK_USDC: { symbol: 'USDC', address: '0xF242275d3a6527d877f2c927a82D9b057609cc71', decimals: 6, name: 'USD Coin (Bridged)' },
-  LISK_USDT: { symbol: 'USDT', address: '0x05D032ac25d322df992303dCa074EE7392C117b9', decimals: 6, name: 'Tether USD' },
 } as const satisfies Record<string, TokenConfig>;
 
 // ── Chain configs ────────────────────────────────────────────────────────────
@@ -95,14 +93,6 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     blockExplorers: { default: { name: 'CeloScan', url: 'https://celoscan.io' } },
     tokens: { USDC: TOKENS.CELO_USDC, USDT: TOKENS.CELO_USDT },
   },
-  LISK: {
-    id: 1135,
-    name: 'Lisk',
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrls: { default: { http: ['https://rpc.api.lisk.com'] } },
-    blockExplorers: { default: { name: 'Lisk Explorer', url: 'https://blockscout.lisk.com' } },
-    tokens: { USDC: TOKENS.LISK_USDC, USDT: TOKENS.LISK_USDT },
-  },
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -130,7 +120,7 @@ export function isNativeToken(chainName: string, tokenSymbol: string): boolean {
 }
 
 // Wagmi chain objects for wallet connection
-export const supportedChains: readonly [Chain, ...Chain[]] = [base, polygon, arbitrum, mainnet, celo, lisk];
+export const supportedChains: readonly [Chain, ...Chain[]] = [base, polygon, arbitrum, mainnet, celo];
 
 // UI list for chain selection
 export const AVAILABLE_CHAINS = [
@@ -139,5 +129,4 @@ export const AVAILABLE_CHAINS = [
   { key: 'ARBITRUM', name: 'Arbitrum', icon: '🔷', recommended: false },
   { key: 'ETHEREUM', name: 'Ethereum', icon: '⟠', recommended: false },
   { key: 'CELO', name: 'Celo', icon: '🟡', recommended: false },
-  { key: 'LISK', name: 'Lisk', icon: '🔶', recommended: false },
 ] as const;
