@@ -202,10 +202,9 @@ export default function PaymentWidget() {
     return rates.currencies.find(c => c.currency === currency) || null;
   }, [rates, currency]);
 
-  // For display (Mode A): prefer onramp, fall back to offramp when buy is
-  // unsupported (UGX/TZS/GHS etc). For Mode B we must have onramp — customer is
-  // converting local fiat → USDC.
-  const displayRate = currencyRate?.onramp ?? currencyRate?.offramp ?? null;
+  // Use OFFRAMP rate for every conversion — that's the rate the merchant
+  // actually receives when their USDC is settled to local currency.
+  const displayRate = currencyRate?.offramp ?? null;
 
   const localNum = useMemo(() => {
     const n = parseFloat(String(amountStr).replace(/[, ]/g, ''));
@@ -215,7 +214,7 @@ export default function PaymentWidget() {
   const usdcAmount = useMemo(() => {
     if (isOpenAmount) {
       if (!currencyRate || !localNum) return 0;
-      return localToUsdc(localNum, currencyRate.onramp);
+      return localToUsdc(localNum, currencyRate.offramp);
     }
     return invoiceData?.amount ?? 0;
   }, [isOpenAmount, localNum, currencyRate, invoiceData]);
@@ -345,10 +344,10 @@ export default function PaymentWidget() {
       ...rates.currencies,
       { currency: 'USD', onramp: 1, offramp: 1, isDefault: false },
     ];
-    // Mode B = customer types local fiat amount → needs onramp to convert into
-    // USDC. Hide currencies that have no buy side so the user can't pick
-    // something we can't process.
-    const usable = isOpenAmount ? all.filter(c => c.onramp !== null && c.onramp > 0) : all;
+    // Show every currency that has an OFFRAMP rate — that's the only side the
+    // merchant actually settles in. Drops currencies with no live offramp
+    // (e.g. MWK during a provider outage).
+    const usable = all.filter(c => c.offramp !== null && c.offramp > 0);
     const q = search.toLowerCase();
     const filt = usable.filter(c => {
       const m = metaFor(c.currency);
@@ -358,7 +357,7 @@ export default function PaymentWidget() {
       african: filt.filter(c => metaFor(c.currency).group === 'african'),
       reserve: filt.filter(c => metaFor(c.currency).group === 'reserve'),
     };
-  }, [rates, search, isOpenAmount]);
+  }, [rates, search]);
 
   const pad: { l: string; k: string }[] = [
     { l: '1', k: '1' }, { l: '2', k: '2' }, { l: '3', k: '3' },
@@ -396,7 +395,7 @@ export default function PaymentWidget() {
                 onOpenCurrency={() => setOverlay('currency')}
                 onContinue={() => setScreen('method')}
                 refreshRate={refreshRates}
-                canContinue={localNum > 0 && !!currencyRate && currencyRate.onramp !== null && currencyRate.onramp > 0}
+                canContinue={localNum > 0 && !!currencyRate && currencyRate.offramp !== null && currencyRate.offramp > 0}
               />
             )}
 
@@ -870,12 +869,11 @@ function CurrencyOverlay({ search, setSearch, african, reserve, selected, onSele
   const renderRow = (c: CurrencyRate) => {
     const meta = metaFor(c.currency);
     const isSelected = c.currency === selected;
-    const rateForLabel = c.onramp ?? c.offramp;
     const rateText = c.currency === 'USD'
       ? 'Base currency'
-      : rateForLabel === null
+      : c.offramp === null
       ? 'Rate unavailable'
-      : `1 USD ≈ ${rateForLabel.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${c.currency}`;
+      : `1 USD ≈ ${c.offramp.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${c.currency}`;
     return (
       <button
         key={c.currency}
