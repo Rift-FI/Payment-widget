@@ -24,7 +24,7 @@ export interface RatesError {
   code: string;
 }
 
-const RATES_URL = 'https://payment.riftfi.xyz/rates';
+const RATES_URL = 'https://payment.riftfi.xyz/v1/rates';
 
 export async function fetchRates(): Promise<RatesResponse> {
   const res = await fetch(RATES_URL);

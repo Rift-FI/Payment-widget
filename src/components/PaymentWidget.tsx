@@ -167,11 +167,11 @@ export default function PaymentWidget() {
       setScreen('success');
 
       if (invoiceData?.invoiceId && hash) {
-        fetch('https://payment.riftfi.xyz/invoices/pay', {
+        // v1: invoice id is a path param, not part of the body.
+        fetch(`https://payment.riftfi.xyz/v1/invoices/${encodeURIComponent(invoiceData.invoiceId)}/payments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            invoiceId: invoiceData.invoiceId,
             transactionHash: hash,
             chain: selectedChain,
           }),
