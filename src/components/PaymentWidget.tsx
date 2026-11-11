@@ -167,11 +167,13 @@ export default function PaymentWidget() {
       setScreen('success');
 
       if (invoiceData?.invoiceId && hash) {
-        // v1: invoice id is a path param, not part of the body.
+        // v1 path carries the id, but the backend handler (payInvoice) still
+        // reads `invoiceId` from the body and 400s without it — send both.
         fetch(`https://payment.riftfi.xyz/v1/invoices/${encodeURIComponent(invoiceData.invoiceId)}/payments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            invoiceId: invoiceData.invoiceId,
             transactionHash: hash,
             chain: selectedChain,
           }),
@@ -226,7 +228,7 @@ export default function PaymentWidget() {
   }, [isOpenAmount, localNum, displayRate, usdcAmount]);
 
   const usdDisplay = fmtUsd(usdcAmount);
-  const localDisplay = `${currency} ${fmt(localDisplayNum, metaFor(currency).dec)}`;
+  const localDisplay = `${currency} ${fmt(localDisplayNum, metaFor(currency, currencyRate).dec)}`;
 
   const walletChainKey = chainKeyFromId(chain?.id);
   const needSwitch = isConnected && walletChainKey !== selectedChain;
@@ -238,7 +240,7 @@ export default function PaymentWidget() {
     ? `Switch to ${chainCfg?.name || selectedChain}, then pay`
     : `Pay ${usdDisplay} ${selectedToken} on ${chainCfg?.name || selectedChain}`;
 
-  const dec = metaFor(currency).dec;
+  const dec = metaFor(currency, currencyRate).dec;
 
   const pressKey = (k: string) => {
     let v = String(amountStr || '').replace(/,/g, '');
@@ -350,12 +352,12 @@ export default function PaymentWidget() {
     const usable = all.filter(c => c.offramp !== null && c.offramp > 0);
     const q = search.toLowerCase();
     const filt = usable.filter(c => {
-      const m = metaFor(c.currency);
+      const m = metaFor(c.currency, c);
       return c.currency.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
     });
     return {
-      african: filt.filter(c => metaFor(c.currency).group === 'african'),
-      reserve: filt.filter(c => metaFor(c.currency).group === 'reserve'),
+      african: filt.filter(c => metaFor(c.currency, c).group === 'african'),
+      reserve: filt.filter(c => metaFor(c.currency, c).group === 'reserve'),
     };
   }, [rates, search]);
 
@@ -867,7 +869,7 @@ interface CurrencyOverlayProps {
 
 function CurrencyOverlay({ search, setSearch, african, reserve, selected, onSelect, onClose }: CurrencyOverlayProps) {
   const renderRow = (c: CurrencyRate) => {
-    const meta = metaFor(c.currency);
+    const meta = metaFor(c.currency, c);
     const isSelected = c.currency === selected;
     const rateText = c.currency === 'USD'
       ? 'Base currency'

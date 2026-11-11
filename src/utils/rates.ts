@@ -7,14 +7,16 @@ export interface CurrencyRate {
   onramp: number | null;
   /** Local fiat per 1 USDC for offramp (crypto→fiat). null = corridor not supported on this side. */
   offramp: number | null;
+  /** Largest local amount allowed in one onramp/offramp transaction (backend txnLimits). Informational here: invoice payments are on-chain and not capped by it. */
+  perTransactionMax?: number;
   isDefault: boolean;
   error?: string;
 }
 
 export interface RatesResponse {
   base: string;
-  detectedCountry: string;
-  defaultCurrency: string;
+  detectedCountry: string | null;
+  defaultCurrency: string | null;
   currencies: CurrencyRate[];
   updatedAt: string;
 }
@@ -55,12 +57,22 @@ export const CURRENCY_META: Record<string, CurrencyMeta> = {
   GHS: { cc: 'gh', name: 'Ghanaian Cedi', dec: 2, group: 'african' },
   UGX: { cc: 'ug', name: 'Ugandan Shilling', dec: 0, group: 'african' },
   TZS: { cc: 'tz', name: 'Tanzanian Shilling', dec: 0, group: 'african' },
-  ZAR: { cc: 'za', name: 'South African Rand', dec: 2, group: 'african' },
+  MWK: { cc: 'mw', name: 'Malawian Kwacha', dec: 2, group: 'african' },
+  // Synthetic base currency added client-side (not returned by GET /v1/rates).
   USD: { cc: 'us', name: 'US Dollar', dec: 2, group: 'reserve' },
-  EUR: { cc: 'eu', name: 'Euro', dec: 2, group: 'reserve' },
-  GBP: { cc: 'gb', name: 'British Pound', dec: 2, group: 'reserve' },
 };
 
-export function metaFor(code: string): CurrencyMeta {
-  return CURRENCY_META[code] || { cc: 'un', name: code, dec: 2, group: 'reserve' };
+/**
+ * Display metadata for a currency. GET /v1/rates returns name/decimals for
+ * every corridor (KES, UGX, TZS, GHS, MWK, NGN); those win over the local
+ * table. Unknown codes from the rates list are African corridors.
+ */
+export function metaFor(code: string, rate?: Pick<CurrencyRate, 'name' | 'decimals'> | null): CurrencyMeta {
+  const local = CURRENCY_META[code];
+  const base: CurrencyMeta = local || { cc: code.slice(0, 2).toLowerCase(), name: code, dec: 2, group: code === 'USD' ? 'reserve' : 'african' };
+  return {
+    ...base,
+    ...(rate?.name ? { name: rate.name } : {}),
+    ...(typeof rate?.decimals === 'number' ? { dec: rate.decimals } : {}),
+  };
 }
