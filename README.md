@@ -63,6 +63,14 @@ npm run preview
 https://example.com/widget?invoice=eyJjaGFpbiI6IlBPTFlHT04iLCJ0b2tlbiI6IlVTREMiLCJhbW91bnQiOjE1LjYzNDc3MTczMjMzMjcwNywiYWRkcmVzcyI6IjB4OGRhQTU2MDM2MmIzMzBiNzFFODkzZkQxQUQxQjI0QTY0MGQ4MDIyQSJ9
 ```
 
+## Sandbox vs production
+
+Production is the default (`https://payment.riftfi.xyz`). To point the widget at the sandbox API (`https://sandbox.riftfi.com`, sends `X-Rift-Mode: sandbox`), append `&env=sandbox` to the payment link, serve it from a `pay.sandbox.<domain>` host, or build with `VITE_API_BASE_URL=https://sandbox.riftfi.com`.
+
+Optional `&key=<public project key>` (`pk_...` or an existing key format; not validated by the widget) is sent as `X-API-Key` when the widget confirms the payment with the API. Never put a secret key in a payment link.
+
+The widget settles real on-chain transfers on mainnet chains only; there are no testnets, so a sandbox invoice still moves real tokens if paid. Use sandbox only to exercise rates and invoice records.
+
 ## Supported Chains
 
 - **Polygon** (MATIC)

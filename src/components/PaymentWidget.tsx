@@ -5,6 +5,7 @@ import { parseUnits } from 'viem';
 import type { InvoiceData } from '../types';
 import { getInvoiceFromUrl, formatAddress } from '../utils/invoice';
 import { getChainConfig, getTokenConfig, AVAILABLE_CHAINS } from '../config/chains';
+import { API_BASE, apiHeaders } from '../config/api';
 import { fetchRates, localToUsdc, usdcToLocal, metaFor, type CurrencyRate, type RatesResponse } from '../utils/rates';
 
 type Screen =
@@ -169,9 +170,9 @@ export default function PaymentWidget() {
       if (invoiceData?.invoiceId && hash) {
         // v1 path carries the id, but the backend handler (payInvoice) still
         // reads `invoiceId` from the body and 400s without it — send both.
-        fetch(`https://payment.riftfi.xyz/v1/invoices/${encodeURIComponent(invoiceData.invoiceId)}/payments`, {
+        fetch(`${API_BASE}/v1/invoices/${encodeURIComponent(invoiceData.invoiceId)}/payments`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: apiHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             invoiceId: invoiceData.invoiceId,
             transactionHash: hash,

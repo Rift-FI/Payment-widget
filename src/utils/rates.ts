@@ -1,3 +1,5 @@
+import { API_BASE, apiHeaders } from '../config/api';
+
 export interface CurrencyRate {
   currency: string;
   name?: string;
@@ -26,10 +28,13 @@ export interface RatesError {
   code: string;
 }
 
-const RATES_URL = 'https://payment.riftfi.xyz/v1/rates';
+const RATES_URL = `${API_BASE}/v1/rates`;
 
 export async function fetchRates(): Promise<RatesResponse> {
-  const res = await fetch(RATES_URL);
+  // apiHeaders() is empty in production without ?key=, so the request stays a
+  // simple CORS GET; sandbox adds X-Rift-Mode (allowed by the backend CORS list).
+  const headers = apiHeaders();
+  const res = await fetch(RATES_URL, Object.keys(headers).length ? { headers } : undefined);
   if (!res.ok) throw new Error('Could not load rates');
   return res.json();
 }
