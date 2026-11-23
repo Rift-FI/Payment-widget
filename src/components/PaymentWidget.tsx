@@ -178,7 +178,9 @@ export default function PaymentWidget() {
             transactionHash: hash,
             chain: selectedChain,
           }),
-        }).catch(err => console.error('Invoice verify failed:', err));
+        })
+          .then(res => { if (!res.ok) console.error('Invoice verify rejected:', res.status); })
+          .catch(err => console.error('Invoice verify failed:', err));
       }
 
       if (invoiceData?.originUrl) {
