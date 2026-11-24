@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MARKETS,
   OnrampError,
@@ -24,6 +24,13 @@ interface Props {
   invoiceId: string;
   token: string;
   cryptoAmount: number;
+  /**
+   * Set only on an open link, where the payer picked the figure themselves:
+   * the number they typed, the currency they typed it in, and its crypto
+   * equivalent. On a link with an amount baked in this stays undefined and
+   * the server charges the invoice.
+   */
+  openAmount?: { currency: string; fiat: number; crypto: number };
   onBack: () => void;
   onPaid: (s: OnrampStatus) => void;
 }
@@ -49,11 +56,17 @@ const field: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
-export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, onBack, onPaid }: Props) {
-  const [currency, setCurrency] = useState(MARKETS[0].currency);
+export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, openAmount, onBack, onPaid }: Props) {
+  // Start in the market the payer was already thinking in, when that market
+  // can be prompted at all. Dropping them into Kenya after they typed an
+  // amount in shillings-of-somewhere-else is its own small confusion.
+  const [currency, setCurrency] = useState(() => {
+    const wanted = (openAmount?.currency ?? '').toUpperCase();
+    return findMarket(wanted) ? wanted : MARKETS[0].currency;
+  });
   const [network, setNetwork] = useState(MARKETS[0].networks[0]);
   const [phone, setPhone] = useState('');
-  const [quote, setQuote] = useState<{ fiatAmount: number; currency: string } | null>(null);
+  const [quote, setQuote] = useState<{ fiatAmount: number; currency: string; cryptoAmount: number; rate: number; fee: number } | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [phase, setPhase] = useState<Phase>('form');
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +74,23 @@ export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, onBack, onPa
   const abort = useRef<AbortController | null>(null);
 
   const market = findMarket(currency)!;
+
+  /**
+   * How to price an open link.
+   *
+   * If the payer is paying from the same currency they typed their amount
+   * in, send that figure and they are prompted for exactly it — no
+   * conversion for them to puzzle over. If they switched country, their
+   * number no longer means anything in this market, so the crypto
+   * equivalent is used and the rate is shown so the new figure is
+   * explicable.
+   */
+  const basis = useMemo(() => {
+    if (!openAmount) return {};
+    return openAmount.currency.toUpperCase() === currency.toUpperCase()
+      ? { fiatAmount: openAmount.fiat }
+      : { amount: openAmount.crypto };
+  }, [openAmount, currency]);
 
   useEffect(() => {
     setNetwork(market.networks[0]);
@@ -72,9 +102,11 @@ export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, onBack, onPa
     let cancelled = false;
     setQuoting(true);
     setError(null);
-    quoteOnramp(invoiceId, currency)
+    quoteOnramp(invoiceId, currency, basis)
       .then((q) => {
-        if (!cancelled) setQuote({ fiatAmount: q.fiatAmount, currency: q.currency });
+        if (!cancelled) {
+          setQuote({ fiatAmount: q.fiatAmount, currency: q.currency, cryptoAmount: q.cryptoAmount, rate: q.rate, fee: q.fee });
+        }
       })
       .catch((e: OnrampError) => {
         if (!cancelled) {
@@ -88,7 +120,7 @@ export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, onBack, onPa
     return () => {
       cancelled = true;
     };
-  }, [invoiceId, currency]);
+  }, [invoiceId, currency, basis]);
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -96,7 +128,7 @@ export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, onBack, onPa
     setError(null);
     setPhase('sending');
     try {
-      const started = await startOnramp(invoiceId, { phone, network, currency });
+      const started = await startOnramp(invoiceId, { phone, network, currency, ...basis });
       setStatus(started);
       setPhase('waiting');
       abort.current = new AbortController();
@@ -139,7 +171,18 @@ export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, onBack, onPa
         <div style={{ font: '600 16px Inter', color: '#0B1620' }}>Mobile money</div>
       </div>
 
-      {/* Amount */}
+      {/*
+        The same three facts the Rift app's buy screen shows, in the same
+        order and the same words: what you pay, what it buys, the rate it
+        bought at. Every figure comes from the server's quote — the widget
+        never re-derives a price, so what is shown here is what the prompt
+        will ask for.
+
+        The rate is the ONRAMP rate (local currency per 1 USDC when buying),
+        which is not the rate the pay page quotes elsewhere: that one is the
+        offramp rate, what the merchant gets when settling to local currency.
+        Showing the wrong one here would explain the total incorrectly.
+      */}
       <div style={{ background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 24, padding: 20, marginTop: 18 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <span style={{ font: '600 12px Inter', letterSpacing: '.05em', textTransform: 'uppercase', color: '#94A3B8' }}>You pay</span>
@@ -147,8 +190,17 @@ export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, onBack, onPa
             {quoting ? '…' : quote ? formatFiat(quote.fiatAmount, quote.currency) : '—'}
           </span>
         </div>
-        <div style={{ textAlign: 'right', font: '500 14px Inter', color: '#64748B', marginTop: 4 }}>
-          for {cryptoAmount} {token}
+
+        <div style={{ borderTop: '1px solid #E2E8F0', marginTop: 14, paddingTop: 12, display: 'grid', gap: 7 }}>
+          <Row label="You get">
+            {quote ? `${trim(quote.cryptoAmount)} ${token}` : cryptoAmount ? `${trim(cryptoAmount)} ${token}` : '—'}
+          </Row>
+          <Row label="Rate">
+            {quote?.rate ? `1 ${token} = ${fmtRate(quote.rate)} ${quote.currency}` : '—'}
+          </Row>
+          <Row label="Fee">
+            {quote ? formatFiat(quote.fee, quote.currency) : '—'}
+          </Row>
         </div>
       </div>
 
@@ -250,3 +302,20 @@ export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, onBack, onPa
     </div>
   );
 }
+
+/** One label/value line, the shape the app uses for a quote breakdown. */
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+      <span style={{ font: '400 13px Inter', color: '#64748B' }}>{label}</span>
+      <span style={{ font: '500 13px Inter', color: '#0B1620', textAlign: 'right' }}>{children}</span>
+    </div>
+  );
+}
+
+/** Crypto, without a tail of meaningless zeros. */
+const trim = (n: number) => String(+n.toFixed(6));
+
+/** A rate reads better to 2dp, but a thin unit (UGX, MWK) needs none. */
+const fmtRate = (r: number) =>
+  r.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: r >= 1000 ? 0 : 2 });

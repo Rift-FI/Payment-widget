@@ -5,8 +5,12 @@ import { API_BASE, apiHeaders } from '../config/api';
  *
  * The payer is prompted on their phone, pays fiat, and Rift releases the
  * crypto straight to the link's own recipient address. The widget never
- * handles the money and never needs a key: the amount comes from the invoice
- * server-side, not from anything this file sends.
+ * handles the money and never needs a key.
+ *
+ * On a link with an amount baked in, nothing here sends an amount: the
+ * server charges the invoice, so a payer cannot talk the prompt down. On an
+ * OPEN link there is no amount on the invoice to charge — the payer chooses
+ * it on the page — so it is sent, and the server bounds it.
  *
  * Nigeria is absent on purpose. NGN onramps settle by bank transfer, with no
  * prompt to push, so showing "check your phone" there would be a lie.
@@ -36,9 +40,14 @@ export const findMarket = (currency: string): Market | undefined =>
 export interface OnrampQuote {
   currency: string;
   fiatAmount: number;
+  /** What the merchant is credited. Can exceed the amount asked for when the
+   *  corridor has a floor, so this is what the payer is shown. */
   cryptoAmount: number;
   rate: number;
   fee: number;
+  /** Echo of what an open link was priced from. */
+  targetCrypto?: number;
+  targetFiat?: number;
 }
 
 export interface OnrampStatus {
@@ -84,17 +93,32 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-/** What the payer will be charged, before any prompt is sent. */
-export function quoteOnramp(invoiceId: string, currency: string): Promise<OnrampQuote> {
-  return call<OnrampQuote>(
-    `/v1/invoices/${encodeURIComponent(invoiceId)}/onramp/quote?currency=${encodeURIComponent(currency)}`
-  );
+/** How an OPEN link is priced. Empty on a link that already has an amount. */
+export interface PriceBasis {
+  /** What the payer pays, in the market's own currency. */
+  fiatAmount?: number;
+  /** A crypto target, when the payer was thinking in USDC or another currency. */
+  amount?: number;
+}
+
+/**
+ * What the payer will be charged, before any prompt is sent.
+ *
+ * A basis is only sent for an open link, where the payer chose the figure. On
+ * a link that already has an amount nothing is sent — the server charges the
+ * invoice, and not sending it keeps that guarantee visible on the wire.
+ */
+export function quoteOnramp(invoiceId: string, currency: string, basis: PriceBasis = {}): Promise<OnrampQuote> {
+  const q = new URLSearchParams({ currency });
+  if (basis.fiatAmount !== undefined) q.set('fiatAmount', String(basis.fiatAmount));
+  else if (basis.amount !== undefined) q.set('amount', String(basis.amount));
+  return call<OnrampQuote>(`/v1/invoices/${encodeURIComponent(invoiceId)}/onramp/quote?${q.toString()}`);
 }
 
 /** Send the prompt. */
 export function startOnramp(
   invoiceId: string,
-  body: { phone: string; network: string; currency: string }
+  body: { phone: string; network: string; currency: string } & PriceBasis
 ): Promise<OnrampStatus & { message?: string }> {
   return call(`/v1/invoices/${encodeURIComponent(invoiceId)}/onramp`, {
     method: 'POST',

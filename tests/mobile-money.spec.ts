@@ -49,7 +49,22 @@ async function mockApi(page: Page, opts: ApiOpts = {}) {
   );
 
   await page.route("**/v1/rates**", (r) =>
-    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) })
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        base: "USDC",
+        detectedCountry: "KE",
+        defaultCurrency: "KES",
+        updatedAt: new Date().toISOString(),
+        currencies: [
+          // onramp (what a buyer pays per USDC) deliberately differs from
+          // offramp (what a merchant receives) — the widget must not mix them.
+          { currency: "KES", name: "Kenyan Shilling", symbol: "KES", decimals: 0, onramp: 132, offramp: 129, isDefault: true },
+          { currency: "TZS", name: "Tanzanian Shilling", symbol: "TZS", decimals: 0, onramp: 2820, offramp: 2700, isDefault: false },
+        ],
+      }),
+    })
   );
 
   await page.route("**/onramp/quote**", (r) => {
@@ -103,9 +118,9 @@ test("the option is offered, and shows what you will pay before you commit", asy
   const calls = await mockApi(page);
   await openMobileMoney(page);
 
-  // Priced on arrival, in local currency, for the invoice's crypto amount.
+  // Priced on arrival, in local currency, with what it buys spelled out.
   await expect(page.getByText("KES 1,350")).toBeVisible();
-  await expect(page.getByText(/for 10 USDC/i)).toBeVisible();
+  await expect(page.getByText(/10\.02 USDC/)).toBeVisible();
   // Quoting must never raise a prompt.
   expect(calls.filter((c) => c.method === "POST")).toHaveLength(0);
   expect(errors).toEqual([]);
@@ -143,13 +158,15 @@ test("sending prompts the payer, then settles without a refresh", async ({ page 
   await page.getByRole("button", { name: /Send payment request/i }).click();
 
   await expect(page.getByText(/Check your phone/i)).toBeVisible();
-  // Resolves on its own.
-  await expect(page.getByText(/Payment complete|Payment successful|Thank you/i).first()).toBeVisible({ timeout: 20_000 });
+  // Resolves on its own, and hands over to the widget's own success screen.
+  await expect(page.getByText(/Payment sent|Payment complete/i).first()).toBeVisible({ timeout: 20_000 });
 
   const post = calls.find((c) => c.method === "POST");
   expect(post?.body).toMatchObject({ phone: "0712345678", network: "Safaricom", currency: "KES" });
-  // The amount is never sent by the client — the server charges the invoice.
+  // On a link with an amount baked in, nothing about the price is sent —
+  // the server charges the invoice, so a payer cannot talk it down.
   expect(post?.body?.amount).toBeUndefined();
+  expect(post?.body?.fiatAmount).toBeUndefined();
   expect(errors).toEqual([]);
 });
 
@@ -204,12 +221,37 @@ test("an unquotable market surfaces the reason and blocks sending", async ({ pag
   await expect(page.getByRole("button", { name: /Send payment request/i })).toBeDisabled();
 });
 
-test("an open-amount link does not offer mobile money", async ({ page }) => {
-  await mockApi(page);
+test("an open-amount link offers mobile money once a figure is entered", async ({ page }) => {
+  const errors = watchErrors(page);
+  const calls = await mockApi(page);
   await page.goto(linkFor(0));
-  // Open amount asks for a figure first; the phone option needs a fixed
-  // invoice amount because the server raises the prompt from the invoice.
+
+  // An open link asks for the figure first, so the option cannot be there yet.
   await expect(page.getByRole("button", { name: /Mobile money/i })).toHaveCount(0);
+
+  // Type 1000 on the keypad, then continue.
+  for (const key of ["1", "0", "0", "0"]) await page.getByRole("button", { name: key, exact: true }).click();
+  await page.getByRole("button", { name: /Continue/i }).click();
+
+  await page.getByRole("button", { name: /Mobile money/i }).click();
+
+  // Priced from the figure the payer typed, in the currency they typed it
+  // in — not converted to USDC and back, which would prompt for a number
+  // they never chose.
+  await expect.poll(() => calls.find((c) => c.method === "GET")?.url ?? "").toContain("fiatAmount=1000");
+  expect(errors).toEqual([]);
+});
+
+test("the quote explains itself: what you get, at what rate, and the fee", async ({ page }) => {
+  await mockApi(page);
+  await openMobileMoney(page);
+
+  await expect(page.getByText("KES 1,350")).toBeVisible();
+  await expect(page.getByText("You get")).toBeVisible();
+  await expect(page.getByText(/10\.02 USDC/)).toBeVisible();
+  // The ONRAMP rate, the one this payment is actually priced at.
+  await expect(page.getByText(/1 USDC = 133 KES/)).toBeVisible();
+  await expect(page.getByText("Fee")).toBeVisible();
 });
 
 test("a link with no invoice id does not offer mobile money", async ({ page }) => {

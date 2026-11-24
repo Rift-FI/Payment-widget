@@ -415,7 +415,7 @@ export default function PaymentWidget() {
                 localDisplay={localDisplay}
                 onOpenWallet={() => openAppkit()}
                 onOpenMobileMoney={
-                  invoiceData?.invoiceId && invoiceData.amount > 0
+                  invoiceData?.invoiceId && usdcAmount > 0
                     ? () => setScreen('mobileMoney')
                     : undefined
                 }
@@ -426,7 +426,12 @@ export default function PaymentWidget() {
               <MobileMoneyScreen
                 invoiceId={invoiceData.invoiceId}
                 token={selectedToken}
-                cryptoAmount={invoiceData.amount}
+                cryptoAmount={usdcAmount}
+                openAmount={
+                  isOpenAmount
+                    ? { currency, fiat: localNum, crypto: usdcAmount }
+                    : undefined
+                }
                 onBack={() => setScreen('method')}
                 onPaid={(settled) => {
                   // Only reached once the BACKEND has confirmed the collection
@@ -671,8 +676,8 @@ interface MethodScreenProps {
   token: string;
   localDisplay: string;
   onOpenWallet: () => void;
-  /** Absent when the link cannot be paid by phone (no invoice id, or an
-   *  open amount the server has nothing to charge). */
+  /** Absent when the link cannot be paid by phone: no invoice id, or no
+   *  amount settled on yet. */
   onOpenMobileMoney?: () => void;
 }
 
@@ -706,10 +711,12 @@ function MethodScreen({ showBack, onBack, usdDisplay, token, localDisplay, onOpe
         <span style={{ color: '#CBD5E1', fontSize: 22 }}>›</span>
       </button>
 
-      {/* Mobile money. Hidden unless the link carries an invoice id and a
-          fixed amount — the prompt is raised server-side from the invoice,
-          so an open-amount link has nothing to charge. Nigeria is not
-          offered anywhere: NGN settles by bank transfer, not a prompt. */}
+      {/* Mobile money. Offered on both kinds of link: one with an amount
+          baked in, and an open one once the payer has entered a figure — by
+          the time this screen is reachable on an open link, they have. Needs
+          an invoice id, since the prompt and the payout are raised
+          server-side against the invoice. Nigeria is never offered: NGN
+          settles by bank transfer, with no prompt to push. */}
       {onOpenMobileMoney && (
         <button onClick={onOpenMobileMoney} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 20, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', marginBottom: 12 }}>
           <div style={{ width: 46, height: 46, borderRadius: 14, background: 'rgba(46,140,150,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
