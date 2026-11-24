@@ -6,6 +6,7 @@ import type { InvoiceData } from '../types';
 import { getInvoiceFromUrl, formatAddress } from '../utils/invoice';
 import { getChainConfig, getTokenConfig, AVAILABLE_CHAINS } from '../config/chains';
 import { API_BASE, apiHeaders } from '../config/api';
+import { MobileMoneyScreen } from './MobileMoneyScreen';
 import { fetchRates, localToUsdc, usdcToLocal, metaFor, type CurrencyRate, type RatesResponse } from '../utils/rates';
 
 type Screen =
@@ -13,6 +14,7 @@ type Screen =
   | 'error'
   | 'amount'
   | 'method'
+  | 'mobileMoney'
   | 'connected'
   | 'tx'
   | 'success'
@@ -412,6 +414,37 @@ export default function PaymentWidget() {
                 token={selectedToken}
                 localDisplay={localDisplay}
                 onOpenWallet={() => openAppkit()}
+                onOpenMobileMoney={
+                  invoiceData?.invoiceId && invoiceData.amount > 0
+                    ? () => setScreen('mobileMoney')
+                    : undefined
+                }
+              />
+            )}
+
+            {screen === 'mobileMoney' && invoiceData?.invoiceId && (
+              <MobileMoneyScreen
+                invoiceId={invoiceData.invoiceId}
+                token={selectedToken}
+                cryptoAmount={invoiceData.amount}
+                onBack={() => setScreen('method')}
+                onPaid={(settled) => {
+                  // Only reached once the BACKEND has confirmed the collection
+                  // settled — MobileMoneyScreen polls until the order is
+                  // terminal and calls this only on `completed`.
+                  setScreen('success');
+                  // Hand back the same references the crypto path does, so the
+                  // merchant can reconcile. Sending the bare originUrl would
+                  // return the payer with nothing to match the payment to.
+                  if (invoiceData?.originUrl) {
+                    const returnUrl = buildReturnUrl(invoiceData.originUrl, {
+                      ...(settled?.transactionHash ? { hash: settled.transactionHash } : {}),
+                      ...(settled?.orderId ? { order_id: settled.orderId } : {}),
+                      method: 'mobile_money',
+                    });
+                    setTimeout(() => { window.location.href = returnUrl; }, 3500);
+                  }
+                }}
               />
             )}
 
@@ -638,9 +671,12 @@ interface MethodScreenProps {
   token: string;
   localDisplay: string;
   onOpenWallet: () => void;
+  /** Absent when the link cannot be paid by phone (no invoice id, or an
+   *  open amount the server has nothing to charge). */
+  onOpenMobileMoney?: () => void;
 }
 
-function MethodScreen({ showBack, onBack, usdDisplay, token, localDisplay, onOpenWallet }: MethodScreenProps) {
+function MethodScreen({ showBack, onBack, usdDisplay, token, localDisplay, onOpenWallet, onOpenMobileMoney }: MethodScreenProps) {
   return (
     <div style={{ flex: '1 0 auto', display: 'flex', flexDirection: 'column', padding: '20px 24px 26px', ...SCREEN }}>
       {showBack && (
@@ -669,6 +705,23 @@ function MethodScreen({ showBack, onBack, usdDisplay, token, localDisplay, onOpe
         </div>
         <span style={{ color: '#CBD5E1', fontSize: 22 }}>›</span>
       </button>
+
+      {/* Mobile money. Hidden unless the link carries an invoice id and a
+          fixed amount — the prompt is raised server-side from the invoice,
+          so an open-amount link has nothing to charge. Nigeria is not
+          offered anywhere: NGN settles by bank transfer, not a prompt. */}
+      {onOpenMobileMoney && (
+        <button onClick={onOpenMobileMoney} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 20, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', marginBottom: 12 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 14, background: 'rgba(46,140,150,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5" fill="none" stroke={ACCENT} strokeWidth="2" /><circle cx="12" cy="17.5" r="1.1" fill={ACCENT} /></svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ font: '600 16px Inter', color: '#0B1620' }}>Mobile money</div>
+            <div style={{ font: '400 13px Inter', color: '#64748B', marginTop: 2 }}>Pay from your phone</div>
+          </div>
+          <span style={{ color: '#CBD5E1', fontSize: 22 }}>›</span>
+        </button>
+      )}
 
       <div style={{ flex: 1 }} />
       <PoweredBy />
