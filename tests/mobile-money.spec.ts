@@ -261,3 +261,43 @@ test("a link with no invoice id does not offer mobile money", async ({ page }) =
   await expect(page.getByRole("button", { name: /Crypto wallet/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /Mobile money/i })).toHaveCount(0);
 });
+
+/**
+ * The rate the page quotes, and what happens when it cannot render at all.
+ *
+ * Both of these are about the payer being a stranger: they were sent a link,
+ * they have no account, and they have no way to tell a display bug from a
+ * broken merchant. So the figure has to be the one they will be charged, and
+ * a crash has to say something.
+ */
+test("quotes the onramp rate — the side the payer actually converts at", async ({ page }) => {
+  await mockApi(page);
+  await page.goto(linkFor(0));
+
+  // KES is mocked at onramp 132, offramp 129. Typing 1000 must price at the
+  // onramp side: 1000/132 = 7.58, not 1000/129 = 7.75.
+  for (const key of ["1", "0", "0", "0"]) await page.getByRole("button", { name: key, exact: true }).click();
+  await expect(page.getByText(/\$7\.5[0-9]/)).toBeVisible();
+  await expect(page.getByText(/\$7\.7[0-9]/)).toHaveCount(0);
+});
+
+test("a crash says so instead of leaving a white page", async ({ page }) => {
+  // The exact shape that blanked the page in testing: /v1/rates answering
+  // with no `currencies`, so iterating it throws during render.
+  await page.route(
+    (url) => url.hostname !== "localhost" && url.hostname !== "127.0.0.1",
+    (route) => route.fulfill({ status: 200, contentType: "application/json", body: "{}" })
+  );
+  await page.route("**/v1/rates**", (r) =>
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) })
+  );
+  await page.goto(linkFor(0));
+
+  // Before the boundary this threw "rates.currencies is not iterable",
+  // React unmounted the tree, and the payer was left looking at white.
+  await expect(page.getByTestId("pay-error")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/This payment page didn't load/i)).toBeVisible();
+  // It must be unambiguous that no money moved.
+  await expect(page.getByText(/Nothing has been charged/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Reload/i })).toBeVisible();
+});

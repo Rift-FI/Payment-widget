@@ -178,10 +178,11 @@ export function MobileMoneyScreen({ invoiceId, token, cryptoAmount, openAmount, 
         never re-derives a price, so what is shown here is what the prompt
         will ask for.
 
-        The rate is the ONRAMP rate (local currency per 1 USDC when buying),
-        which is not the rate the pay page quotes elsewhere: that one is the
-        offramp rate, what the merchant gets when settling to local currency.
-        Showing the wrong one here would explain the total incorrectly.
+        The rate is the ONRAMP rate: local currency per 1 USDC when buying,
+        which is the direction the payer is going and the rate they are
+        actually charged. The rest of the pay page quotes the same side (see
+        payerRate in utils/rates), so the figure here cannot disagree with
+        the one they saw on the way in.
       */}
       <div style={{ background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 24, padding: 20, marginTop: 18 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>

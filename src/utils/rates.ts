@@ -81,3 +81,26 @@ export function metaFor(code: string, rate?: Pick<CurrencyRate, 'name' | 'decima
     ...(typeof rate?.decimals === 'number' ? { dec: rate.decimals } : {}),
   };
 }
+
+/**
+ * The rate the PAYER converts at.
+ *
+ * This page is read by whoever is paying, and they are always going the same
+ * way: local currency into crypto. That is the ONRAMP side — and on a link
+ * paid by mobile money it is literally the rate they are charged.
+ *
+ * The offramp rate is what the MERCHANT receives when they later settle that
+ * crypto back to local currency. It sits a few per cent the other side, and
+ * showing it here made the page quote a figure that no payer would ever be
+ * charged.
+ *
+ * Falls back to offramp only so a corridor that cannot be bought this minute
+ * still shows an indicative figure for an on-chain payment, instead of the
+ * currency vanishing from the list.
+ */
+export function payerRate(c: CurrencyRate | null | undefined): number | null {
+  if (!c) return null;
+  if (c.onramp !== null && c.onramp > 0) return c.onramp;
+  if (c.offramp !== null && c.offramp > 0) return c.offramp;
+  return null;
+}

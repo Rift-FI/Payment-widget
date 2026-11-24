@@ -7,7 +7,7 @@ import { getInvoiceFromUrl, formatAddress } from '../utils/invoice';
 import { getChainConfig, getTokenConfig, AVAILABLE_CHAINS } from '../config/chains';
 import { API_BASE, apiHeaders } from '../config/api';
 import { MobileMoneyScreen } from './MobileMoneyScreen';
-import { fetchRates, localToUsdc, usdcToLocal, metaFor, type CurrencyRate, type RatesResponse } from '../utils/rates';
+import { fetchRates, localToUsdc, usdcToLocal, metaFor, payerRate, type CurrencyRate, type RatesResponse } from '../utils/rates';
 
 type Screen =
   | 'loading'
@@ -209,9 +209,10 @@ export default function PaymentWidget() {
     return rates.currencies.find(c => c.currency === currency) || null;
   }, [rates, currency]);
 
-  // Use OFFRAMP rate for every conversion — that's the rate the merchant
-  // actually receives when their USDC is settled to local currency.
-  const displayRate = currencyRate?.offramp ?? null;
+  // The payer's own direction: local currency into crypto, i.e. the ONRAMP
+  // rate. See payerRate — the offramp rate belongs to the merchant settling
+  // later, and quoting it here showed a figure nobody is charged.
+  const displayRate = payerRate(currencyRate);
 
   const localNum = useMemo(() => {
     const n = parseFloat(String(amountStr).replace(/[, ]/g, ''));
@@ -221,7 +222,7 @@ export default function PaymentWidget() {
   const usdcAmount = useMemo(() => {
     if (isOpenAmount) {
       if (!currencyRate || !localNum) return 0;
-      return localToUsdc(localNum, currencyRate.offramp);
+      return localToUsdc(localNum, payerRate(currencyRate));
     }
     return invoiceData?.amount ?? 0;
   }, [isOpenAmount, localNum, currencyRate, invoiceData]);
@@ -351,10 +352,9 @@ export default function PaymentWidget() {
       ...rates.currencies,
       { currency: 'USD', onramp: 1, offramp: 1, isDefault: false },
     ];
-    // Show every currency that has an OFFRAMP rate — that's the only side the
-    // merchant actually settles in. Drops currencies with no live offramp
-    // (e.g. MWK during a provider outage).
-    const usable = all.filter(c => c.offramp !== null && c.offramp > 0);
+    // Show every currency the payer can actually convert from. Drops ones
+    // with no live rate on either side (e.g. MWK during a provider outage).
+    const usable = all.filter(c => payerRate(c) !== null);
     const q = search.toLowerCase();
     const filt = usable.filter(c => {
       const m = metaFor(c.currency, c);
@@ -402,7 +402,7 @@ export default function PaymentWidget() {
                 onOpenCurrency={() => setOverlay('currency')}
                 onContinue={() => setScreen('method')}
                 refreshRate={refreshRates}
-                canContinue={localNum > 0 && !!currencyRate && currencyRate.offramp !== null && currencyRate.offramp > 0}
+                canContinue={localNum > 0 && payerRate(currencyRate) !== null}
               />
             )}
 
@@ -934,11 +934,12 @@ function CurrencyOverlay({ search, setSearch, african, reserve, selected, onSele
   const renderRow = (c: CurrencyRate) => {
     const meta = metaFor(c.currency, c);
     const isSelected = c.currency === selected;
+    const rate = payerRate(c);
     const rateText = c.currency === 'USD'
       ? 'Base currency'
-      : c.offramp === null
+      : rate === null
       ? 'Rate unavailable'
-      : `1 USD ≈ ${c.offramp.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${c.currency}`;
+      : `1 USD ≈ ${rate.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${c.currency}`;
     return (
       <button
         key={c.currency}
